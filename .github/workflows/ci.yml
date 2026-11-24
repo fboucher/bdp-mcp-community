@@ -22,5 +22,38 @@ jobs:
       - run: npm run typecheck
       - run: npm test
       - run: npm run build
+      - name: Smoke test packed npm executable
+        shell: bash
+        run: |
+          set -euo pipefail
+          package=$(npm pack --silent)
+          npm install --prefix "$RUNNER_TEMP/bdp-smoke" --ignore-scripts "./$package"
+          node .github/scripts/smoke-stdio.mjs "$RUNNER_TEMP/bdp-smoke/node_modules/.bin/bdp-mcp-community"
+      - name: Smoke test container transports
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker build -t bdp-mcp-smoke .
+          test "$(docker run --rm --entrypoint id bdp-mcp-smoke -u)" != 0
+          node .github/scripts/smoke-stdio.mjs docker run --rm -i \
+            -e BDP_TENANT_ID -e BDP_CLIENT_ID -e BDP_CLIENT_SECRET -e BDP_SCOPE \
+            -e MCP_TRANSPORT bdp-mcp-smoke
+          container=$(docker run -d --rm -p 127.0.0.1::3000 \
+            -e BDP_TENANT_ID=example-tenant -e BDP_CLIENT_ID=example-client \
+            -e BDP_CLIENT_SECRET=example-secret -e BDP_SCOPE=example-scope \
+            -e MCP_TRANSPORT=http -e MCP_HTTP_HOST=0.0.0.0 \
+            -e MCP_AUTH_TOKEN=example-token bdp-mcp-smoke)
+          trap 'docker stop "$container" >/dev/null' EXIT
+          port=$(docker port "$container" 3000/tcp | cut -d: -f2)
+          for attempt in {1..30}; do
+            if curl -fsS "http://127.0.0.1:$port/health"; then break; fi
+            sleep 1
+          done
+          test "$(curl -s -o /dev/null -w '%{http_code}' -X POST "http://127.0.0.1:$port/mcp")" = 401
+          curl -fsS -X POST "http://127.0.0.1:$port/mcp" \
+            -H 'Authorization: Bearer example-token' \
+            -H 'Content-Type: application/json' -H 'Accept: application/json, text/event-stream' \
+            -d '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-03-26","capabilities":{},"clientInfo":{"name":"smoke","version":"1"}}}' \
+            | grep -q '"protocolVersion"'
       - name: Scan for secrets
         run: docker run --rm --user "$(id -u):$(id -g)" -v "$PWD:/repo" ghcr.io/gitleaks/gitleaks:v8.24.3 git --redact /repo

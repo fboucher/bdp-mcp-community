@@ -130,16 +130,19 @@ read-only and destructive.
 | `false` | `true` | Read-only, non-destructive write, and destructive tools. |
 
 Omitted tools are unavailable for both discovery and invocation. These gates
-are not a replacement for BDP permissions or client-side approval. All
-currently registered tools are read-only; setting the flags does not create
-write tools. GraphQL mutations and subscriptions are rejected independently of
-the flags.
+are not a replacement for BDP permissions or client-side approval. The
+non-destructive write tool `bdp_create_dataset` is omitted by default; enabling
+writes exposes it. No destructive tools are currently registered. GraphQL
+mutations and subscriptions are rejected independently of the flags.
 
 ## Tools and development
 
 The server exposes `bdp_list_sites`, spatial organization/building/floor/space
 tools, device and source listing, dataset retrieval, current and historical
 measurement-value tools, `bdp_graphql_schema`, and `bdp_graphql_query`.
+When writes are enabled, `bdp_create_dataset` accepts a non-empty `name`, a
+future UTC `expiresOn` timestamp, and `members` containing optional GUID arrays
+for `buildings`, `floors`, `spaces`, `devices`, or `measurementValues`.
 List tools accept offset pagination (`take`, default 20, capped at 100; `skip`,
 default 0) and return an `items` plus `pagination` JSON envelope. Recognized
 response headers provide continuation metadata; otherwise `hasMore` is unknown

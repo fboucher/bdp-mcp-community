@@ -59,6 +59,27 @@ describe('BDP client', () => {
     expect(tokens).toEqual(['Bearer token-1', 'Bearer token-2']);
   });
 
+  it('sends JSON write requests and reports a clear bad-request error', async () => {
+    const requests: RequestInit[] = [];
+    const http = vi.fn<typeof fetch>(async (input, init) => {
+      if (String(input).includes('login.microsoftonline.com')) {
+        return json({ access_token: 'example-token', expires_in: 3600 });
+      }
+      requests.push(init ?? {});
+      return requests.length === 1 ? json({ id: 'created' }) : json({}, 400);
+    });
+    const client = new BdpClient(config, http);
+    const payload = { name: 'Fictional dataset' };
+    const created = await client.sendJson('/api/DataSets', payload);
+
+    expect(created.data).toEqual({ id: 'created' });
+    expect(requests[0]?.method).toBe('POST');
+    expect(new Headers(requests[0]?.headers).get('Content-Type')).toBe('application/json');
+    expect(requests[0]?.body).toBe(JSON.stringify(payload));
+    await expect(client.sendJson('/api/DataSets', payload))
+      .rejects.toThrow('HTTP 400; check the request fields');
+  });
+
   it('stops after the second 401', async () => {
     let authCalls = 0;
     let apiCalls = 0;

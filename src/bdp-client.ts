@@ -86,15 +86,29 @@ export class BdpClient {
     for (const [key, value] of Object.entries(query)) {
       if (value !== undefined) url.searchParams.set(key, String(value));
     }
+    return this.requestJson(url, { method: 'GET' });
+  }
+
+  async sendJson(path: string, body: unknown): Promise<BdpResponse> {
+    const url = new URL(`${this.config.baseUrl}${path}`);
+    return this.requestJson(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+  }
+
+  private async requestJson(url: URL, options: RequestInit): Promise<BdpResponse> {
     let token = await this.getToken();
-    let response = await this.request(url, token);
+    let response = await this.request(url, token, options);
     if (response.status === 401) {
       if (this.token === token) this.token = undefined;
       token = await this.getToken();
-      response = await this.request(url, token);
+      response = await this.request(url, token, options);
     }
     if (!response.ok) {
       if (response.status === 401) throw new BdpError('BDP returned HTTP 401 after re-authentication');
+      if (response.status === 400) throw new BdpError('BDP returned HTTP 400; check the request fields');
       if (response.status === 403) throw new BdpError('BDP returned HTTP 403; the identity is not authorized to access this resource');
       if (response.status === 404) throw new BdpError('BDP returned HTTP 404; the requested resource was not found');
       if (response.status === 413) throw new BdpError('BDP returned HTTP 413; reduce take or narrow the request');

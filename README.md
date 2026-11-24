@@ -31,7 +31,10 @@ variables. Supply secrets through your client or host's secret storage; do not
 commit them. The server uses stdout exclusively for MCP and writes startup
 errors to stderr.
 
-All tools currently exposed by this server are read-only. The write-safety
+Read-only mode is enabled by default. When writes are enabled,
+`bdp_create_dataset` accepts a non-empty `name`, a future UTC `expiresOn`
+timestamp, and `members` containing optional GUID arrays for `buildings`,
+`floors`, `spaces`, `devices`, or `measurementValues`. The write-safety
 settings are enforced when tools are registered: read-only mode omits write
 tools from both discovery and invocation, while destructive tools require both
 `MCP_READ_ONLY=false` and `MCP_ALLOW_DESTRUCTIVE=true`. Startup reports the

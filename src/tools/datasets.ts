@@ -12,7 +12,35 @@ import {
 } from './read-tools-common.js';
 import { registerSafeTool } from './register-safe-tool.js';
 
+const datasetMembersSchema = z.object({
+  buildings: z.array(guidSchema).optional(),
+  floors: z.array(guidSchema).optional(),
+  spaces: z.array(guidSchema).optional(),
+  devices: z.array(guidSchema).optional(),
+  measurementValues: z.array(guidSchema).optional(),
+}).strict();
+
+const datasetExpirationSchema = z.string().datetime({ offset: false })
+  .refine((value) => Date.parse(value) > Date.now(), 'expiresOn must be in the future');
+
 export function registerDatasetTools(server: McpServer, client: BdpClient, config: Config): void {
+  registerSafeTool(server, config, 'bdp_create_dataset', {
+    description: 'Create a named, expiring dataset containing selected BDP resource IDs.',
+    inputSchema: {
+      name: z.string().trim().min(1).describe('Non-empty dataset name.'),
+      expiresOn: datasetExpirationSchema
+        .describe('Future ISO 8601 UTC expiration timestamp ending in Z.'),
+      members: datasetMembersSchema.describe('Optional arrays of GUIDs grouped by resource type.'),
+    },
+    annotations: { readOnlyHint: false, destructiveHint: false, openWorldHint: true },
+  }, async ({ name, expiresOn, members }) => {
+    try {
+      return pagedContent(await client.sendJson('/api/DataSets', { name, expiresOn, members }), 0, 1);
+    } catch (error) {
+      return errorContent(error, 'Unexpected error while creating the dataset');
+    }
+  });
+
   registerSafeTool(server, config, 'bdp_list_datasets', {
     description: 'List datasets visible to the configured BDP identity.',
     inputSchema: {

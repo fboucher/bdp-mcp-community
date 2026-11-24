@@ -1,7 +1,7 @@
 # BDP MCP community server
 
-A read-only MCP server for EcoStruxure Building Data Platform (BDP), with site
-listing and GraphQL schema/query tools. It uses stdio by default and an Entra
+A read-only MCP server for EcoStruxure Building Data Platform (BDP), with REST
+read tools and GraphQL schema/query tools. It uses stdio by default and an Entra
 client-credentials identity.
 
 ## Setup
@@ -41,6 +41,27 @@ Mutation and subscription operations are rejected. GraphQL requests use
 `<BDP_BASE_URL>/graphql`, standard JSON request/response bodies, and the API
 version header `3.0`; responses are limited to 64 KiB and schema summaries to
 32 KiB. A 401 triggers one token renewal and retry.
+
+The server exposes `bdp_list_sites`, spatial organization/building/floor/space
+tools, device and source listing, dataset retrieval, and current or historical
+measurement-value tools. List tools accept offset pagination (`take`, default
+20, capped at 100; `skip`, default 0) and return an `items` plus `pagination`
+JSON envelope. Recognized response headers (`Content-Range`, `X-Total-Count`,
+`Link: rel="next"`, `X-Next-Skip`, and `X-Next-Offset`) provide continuation
+metadata. When those headers are absent, `hasMore` is unknown unless a full
+page was returned. Oversized array responses are shortened at an item boundary
+and include a continuation hint.
+
+All tools validate GUID inputs and surface HTTP errors without exposing
+response bodies. A 401 causes one token renewal and retry; 404, 413, 424, 403,
+and server failures become explicit tool errors. The API version header is
+always `3.0`.
+
+The public starter examples confirm the organization, building, floor, space,
+and dataset measurement-value routes used here. The nested device/device-group
+routes, generic entity route mapping, historical-value path and query parameter
+names, and exact-name filters remain implementation assumptions pending access
+to the canonical OpenAPI bundle. These are isolated in the tool registrations.
 
 For BDP access and scope setup, see the
 [public BDP documentation](https://github.com/SchneiderElectricBuildings/BuildingDataPlatform).

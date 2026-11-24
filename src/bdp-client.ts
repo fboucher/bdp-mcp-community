@@ -2,6 +2,13 @@ import type { Config } from './config.js';
 
 export class BdpError extends Error {}
 
+export interface BdpResponse {
+  data: unknown;
+  headers: Headers;
+}
+
+export type QueryParameters = Record<string, string | number | boolean | undefined>;
+
 interface Token {
   value: string;
   expiresAt: number;
@@ -71,9 +78,14 @@ export class BdpClient {
   }
 
   async listSites(take: number, skip: number): Promise<unknown> {
-    const url = new URL(`${this.config.baseUrl}/api/Sites`);
-    url.searchParams.set('take', String(take));
-    url.searchParams.set('skip', String(skip));
+    return (await this.getJson('/api/Sites', { take, skip })).data;
+  }
+
+  async getJson(path: string, query: QueryParameters = {}): Promise<BdpResponse> {
+    const url = new URL(`${this.config.baseUrl}${path}`);
+    for (const [key, value] of Object.entries(query)) {
+      if (value !== undefined) url.searchParams.set(key, String(value));
+    }
     let token = await this.getToken();
     let response = await this.request(url, token);
     if (response.status === 401) {
@@ -83,12 +95,15 @@ export class BdpClient {
     }
     if (!response.ok) {
       if (response.status === 401) throw new BdpError('BDP returned HTTP 401 after re-authentication');
-      if (response.status === 403) throw new BdpError('BDP returned HTTP 403; the identity is not authorized to access sites');
+      if (response.status === 403) throw new BdpError('BDP returned HTTP 403; the identity is not authorized to access this resource');
+      if (response.status === 404) throw new BdpError('BDP returned HTTP 404; the requested resource was not found');
+      if (response.status === 413) throw new BdpError('BDP returned HTTP 413; reduce take or narrow the request');
+      if (response.status === 424) throw new BdpError('BDP returned HTTP 424; a required upstream resource could not be reached');
       if (response.status >= 500) throw new BdpError(`BDP service failed (HTTP ${response.status}); try again later`);
       throw new BdpError(`BDP request failed (HTTP ${response.status})`);
     }
     try {
-      return await response.json();
+      return { data: await response.json(), headers: response.headers };
     } catch {
       throw new BdpError('BDP returned invalid JSON');
     }

@@ -1,9 +1,7 @@
 import { z } from 'zod';
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
-import { BdpClient, BdpError } from '../bdp-client.js';
-
-export const MAX_TAKE = 100;
-const DEFAULT_TAKE = 20;
+import { BdpClient } from '../bdp-client.js';
+import { DEFAULT_TAKE, errorContent, listQuery, pagedContent } from './read-tools-common.js';
 
 export function registerSitesTool(server: McpServer, client: BdpClient): void {
   server.registerTool('bdp_list_sites', {
@@ -14,14 +12,12 @@ export function registerSitesTool(server: McpServer, client: BdpClient): void {
     },
     annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: true },
   }, async ({ take = DEFAULT_TAKE, skip = 0 }) => {
+    const request = listQuery(take, skip);
     try {
-      const sites = await client.listSites(Math.min(take, MAX_TAKE), skip);
-      return { content: [{ type: 'text', text: JSON.stringify(sites) }] };
+      const response = await client.getJson('/api/Sites', request.query);
+      return pagedContent(response, request.skip, request.take);
     } catch (error) {
-      return {
-        isError: true,
-        content: [{ type: 'text', text: error instanceof BdpError ? error.message : 'Unexpected error while listing sites' }],
-      };
+      return errorContent(error, 'Unexpected error while listing sites');
     }
   });
 }

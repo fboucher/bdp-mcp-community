@@ -36,15 +36,23 @@ describe('MCP server', () => {
       await server.connect(serverTransport);
       await client.connect(clientTransport);
       const tools = await client.listTools();
-      expect(tools.tools.map((tool) => tool.name)).toEqual([
+      const toolNames = tools.tools.map((tool) => tool.name);
+      expect(toolNames).toEqual(expect.arrayContaining([
         'bdp_list_sites',
         'bdp_graphql_schema',
         'bdp_graphql_query',
-      ]);
-      expect(tools.tools[0].annotations?.readOnlyHint).toBe(true);
+        'bdp_list_buildings',
+      ]));
+      expect(tools.tools.find((tool) => tool.name === 'bdp_list_sites')?.annotations?.readOnlyHint).toBe(true);
       const result = await client.callTool({ name: 'bdp_list_sites', arguments: { take: 1000, skip: 3 } });
       expect(result.isError).not.toBe(true);
-      expect(result.content).toEqual([{ type: 'text', text: JSON.stringify(sites) }]);
+      expect(result.content).toEqual([{
+        type: 'text',
+        text: JSON.stringify({
+          items: sites,
+          pagination: { skip: 3, take: 100, returned: 1, hasMore: null },
+        }),
+      }]);
       expect(http).toHaveBeenCalledTimes(2);
     } finally {
       await client.close();

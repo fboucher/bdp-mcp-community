@@ -94,10 +94,46 @@ export class BdpClient {
     }
   }
 
-  private async request(url: URL, token: Token): Promise<Response> {
+  async graphqlRequest(
+    query: string,
+    variables?: Record<string, unknown>,
+    operationName?: string,
+  ): Promise<{ status: number; body: unknown }> {
+    const url = new URL(`${this.config.baseUrl}/graphql`);
+    const payload: { query: string; variables?: Record<string, unknown>; operationName?: string } = { query };
+    if (variables !== undefined) payload.variables = variables;
+    if (operationName !== undefined) payload.operationName = operationName;
+    let token = await this.getToken();
+    let response = await this.request(url, token, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    if (response.status === 401) {
+      if (this.token === token) this.token = undefined;
+      token = await this.getToken();
+      response = await this.request(url, token, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+    }
+
+    let body: unknown;
+    try {
+      body = await response.json();
+    } catch {
+      throw new BdpError('BDP returned invalid GraphQL JSON');
+    }
+    return { status: response.status, body };
+  }
+
+  private async request(url: URL, token: Token, options: RequestInit = {}): Promise<Response> {
     try {
       return await this.http(url, {
+        ...options,
         headers: {
+          ...options.headers,
           Authorization: `Bearer ${token.value}`,
           'X-Api-Version': '3.0',
           Accept: 'application/json',

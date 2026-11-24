@@ -10,6 +10,9 @@ const config: Config = {
   clientId: 'example-client',
   clientSecret: 'example-secret',
   scope: 'example-scope',
+  transport: 'stdio',
+  httpHost: '127.0.0.1',
+  httpPort: 3000,
 };
 
 describe('MCP server', () => {
@@ -33,7 +36,11 @@ describe('MCP server', () => {
       await server.connect(serverTransport);
       await client.connect(clientTransport);
       const tools = await client.listTools();
-      expect(tools.tools.map((tool) => tool.name)).toEqual(['bdp_list_sites']);
+      expect(tools.tools.map((tool) => tool.name)).toEqual([
+        'bdp_list_sites',
+        'bdp_graphql_schema',
+        'bdp_graphql_query',
+      ]);
       expect(tools.tools[0].annotations?.readOnlyHint).toBe(true);
       const result = await client.callTool({ name: 'bdp_list_sites', arguments: { take: 1000, skip: 3 } });
       expect(result.isError).not.toBe(true);

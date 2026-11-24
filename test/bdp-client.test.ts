@@ -8,6 +8,9 @@ const config: Config = {
   clientId: 'example-client',
   clientSecret: 'example-secret',
   scope: 'example-scope',
+  transport: 'stdio',
+  httpHost: '127.0.0.1',
+  httpPort: 3000,
 };
 const json = (value: unknown, status = 200) =>
   new Response(JSON.stringify(value), { status, headers: { 'Content-Type': 'application/json' } });

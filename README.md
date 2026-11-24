@@ -1,8 +1,9 @@
 # BDP MCP community server
 
 A Model Context Protocol (MCP) server for EcoStruxure Building Data Platform
-(BDP), with REST read tools and GraphQL schema/query tools. It uses stdio by
-default and an Entra client-credentials identity.
+(BDP), with REST read tools, an opt-in dataset creation tool, and GraphQL
+schema/query tools. It uses stdio by default and an Entra client-credentials
+identity.
 
 ## Quick start
 
@@ -117,14 +118,14 @@ defaults to stdio. Attach stdin with `-i` and provide the required BDP variables
 through a private env file:
 
 ```sh
-docker run --rm -i --env-file ./bdp.env bdp-mcp-community
+docker run --rm -i --env-file ./.env.bdp bdp-mcp-community
 ```
 
 For Streamable HTTP, include the four required `BDP_*` variables and a strong
 `MCP_AUTH_TOKEN` in the private env file, then run:
 
 ```sh
-docker run --rm --env-file ./bdp.env \
+docker run --rm --env-file ./.env.bdp \
   -e MCP_TRANSPORT=http -e MCP_HTTP_HOST=0.0.0.0 \
   -p 127.0.0.1:3000:3000 bdp-mcp-community
 ```
@@ -134,6 +135,8 @@ public. Binding to `0.0.0.0` inside the container allows port forwarding; the
 example exposes the port only on the host's loopback interface. Use a trusted
 gateway for TLS and additional access controls, protect the bearer token and
 credentials, and do not expose the port directly to untrusted networks.
+`.env.bdp` is ignored by Git and excluded from the Docker build context; keep
+the file private and never commit credentials.
 
 ### Releasing
 

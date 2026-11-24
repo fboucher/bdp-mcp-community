@@ -31,6 +31,72 @@ variables. Supply secrets through your client or host's secret storage; do not
 commit them. The server uses stdout exclusively for MCP and writes startup
 errors to stderr.
 
+### npm / npx
+
+The proposed package name is `@fboucher/bdp-mcp-community`. It is not yet
+published: a maintainer must reserve the npm scope and configure publishing
+credentials first. After publication, Claude Desktop and other clients using
+an `mcpServers` configuration can use:
+
+```json
+{
+  "mcpServers": {
+    "bdp": {
+      "command": "npx",
+      "args": ["-y", "@fboucher/bdp-mcp-community"],
+      "env": {
+        "BDP_TENANT_ID": "<tenant-id>",
+        "BDP_CLIENT_ID": "<client-id>",
+        "BDP_CLIENT_SECRET": "<client-secret>",
+        "BDP_SCOPE": "<bdp-scope>"
+      }
+    }
+  }
+}
+```
+
+For VS Code, use the same server definition under `servers` in `.vscode/mcp.json`
+and add `"type": "stdio"` to it. On Windows, clients that cannot resolve `npx`
+may need `npx.cmd` as the command. Use the client's secret storage where
+available instead of saving credentials in a shared configuration file.
+
+### Container hosting
+
+Build locally with `docker build -t bdp-mcp-community .`. The proposed release
+image is `ghcr.io/fboucher/bdp-mcp-community:v<version>` after publication. The
+image runs as a non-root user and defaults to stdio; attach stdin with `-i`
+and pass the required BDP variables via a private env file:
+
+```sh
+docker run --rm -i --env-file ./bdp.env bdp-mcp-community
+```
+
+For Streamable HTTP, put the four required `BDP_*` variables above and a
+strong `MCP_AUTH_TOKEN` in that private env file, then run:
+
+```sh
+docker run --rm --env-file ./bdp.env \
+  -e MCP_TRANSPORT=http -e MCP_HTTP_HOST=0.0.0.0 \
+  -p 127.0.0.1:3000:3000 bdp-mcp-community
+```
+
+Connect to `/mcp` using `Authorization: Bearer <mcp-auth-token>`; `/health` is
+public. Binding to `0.0.0.0` inside the container is needed for port forwarding;
+the example exposes the port only on the host's loopback interface. Put a
+trusted gateway in front for TLS, authentication and any additional access
+controls, and protect the bearer token and BDP credentials. Do not expose the
+container port directly to untrusted networks.
+
+### Releasing
+
+The tag-triggered workflows publish only from `fboucher/bdp-mcp-community` and
+require a tag `v<version>` matching `package.json`. Before release, a maintainer
+must reserve the proposed npm scope (or update the package name), configure the
+`NPM_TOKEN` repository secret with an npm publishing credential, and ensure the
+workflow token can publish packages to GHCR. Verify the published package from a
+clean machine after the first release. No package or image is implied to exist
+until those steps and publication are complete.
+
 All tools currently exposed by this server are read-only. The write-safety
 settings are enforced when tools are registered: read-only mode omits write
 tools from both discovery and invocation, while destructive tools require both

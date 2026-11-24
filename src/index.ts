@@ -1,3 +1,4 @@
+#!/usr/bin/env node
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import { loadConfig, writeSafetyStatus } from './config.js';
 import { startHttpTransport } from './http-transport.js';

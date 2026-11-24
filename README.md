@@ -1,7 +1,7 @@
 # BDP MCP community server
 
-A minimal, read-only MCP server for listing EcoStruxure Building Data Platform
-(BDP) sites. It uses stdio and an Entra client-credentials identity.
+A read-only MCP server for querying EcoStruxure Building Data Platform (BDP)
+through stdio and an Entra client-credentials identity.
 
 ## Setup
 
@@ -23,10 +23,28 @@ variables. Supply secrets through your client or host's secret storage; do not
 commit them. The server uses stdout exclusively for MCP and writes startup
 errors to stderr.
 
-`bdp_list_sites` accepts optional integer `take` (default 20, capped at 100)
-and `skip` (default 0). It returns the BDP JSON response. A 401 causes one
-token renewal and retry; 401, 403, and server failures are returned as tool
-errors. The API version header is always `3.0`.
+The server exposes `bdp_list_sites`, spatial organization/building/floor/space
+tools, device and source listing, dataset retrieval, and current or historical
+measurement-value tools. List tools accept offset pagination (`take`, default
+20, capped at 100; `skip`, default 0) and return an `items` plus `pagination`
+JSON envelope. Recognized response headers (`Content-Range`, `X-Total-Count`,
+`Link: rel="next"`, `X-Next-Skip`, and `X-Next-Offset`) provide continuation
+metadata. When those headers are absent, `hasMore` is unknown unless a full
+page was returned. Oversized array responses are shortened at an item boundary
+and include a continuation hint.
+
+All tools validate GUID inputs and surface HTTP errors without exposing
+response bodies. A 401 causes one token renewal and retry; 404, 413, 424, 403,
+and server failures become explicit tool errors. The API version header is
+always `3.0`.
+
+The public starter examples confirm the organization, building, floor, space,
+and dataset measurement-value routes used here. The following routes or
+parameters are implementation assumptions pending access to the canonical
+OpenAPI bundle: nested device/device-group routes, the generic entity route
+mapping, historical-value path and query parameter names, and exact-name
+filters. These are isolated in the tool registrations so they can be aligned
+with the bundle without changing the shared client.
 
 For BDP access and scope setup, see the
 [public BDP documentation](https://github.com/SchneiderElectricBuildings/BuildingDataPlatform).

@@ -13,6 +13,8 @@ const config: Config = {
   transport: 'stdio',
   httpHost: '127.0.0.1',
   httpPort: 3000,
+  readOnly: true,
+  allowDestructive: false,
 };
 
 describe('MCP server', () => {
@@ -43,6 +45,9 @@ describe('MCP server', () => {
         'bdp_graphql_query',
         'bdp_list_buildings',
       ]));
+      expect(tools.tools.every((tool) =>
+        tool.annotations?.readOnlyHint === true && tool.annotations.destructiveHint === false,
+      )).toBe(true);
       expect(tools.tools.find((tool) => tool.name === 'bdp_list_sites')?.annotations?.readOnlyHint).toBe(true);
       const result = await client.callTool({ name: 'bdp_list_sites', arguments: { take: 1000, skip: 3 } });
       expect(result.isError).not.toBe(true);

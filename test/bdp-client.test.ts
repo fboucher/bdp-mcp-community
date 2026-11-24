@@ -11,6 +11,8 @@ const config: Config = {
   transport: 'stdio',
   httpHost: '127.0.0.1',
   httpPort: 3000,
+  readOnly: true,
+  allowDestructive: false,
 };
 const json = (value: unknown, status = 200) =>
   new Response(JSON.stringify(value), { status, headers: { 'Content-Type': 'application/json' } });

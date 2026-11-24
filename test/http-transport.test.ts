@@ -16,6 +16,8 @@ const config: Config = {
   httpHost: '127.0.0.1',
   httpPort: 0,
   authToken: 'test-bearer-token',
+  readOnly: true,
+  allowDestructive: false,
 };
 
 describe('Streamable HTTP transport', () => {

@@ -1,10 +1,12 @@
 import { z } from 'zod';
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { BdpClient } from '../bdp-client.js';
+import type { Config } from '../config.js';
 import { DEFAULT_TAKE, errorContent, listQuery, pagedContent } from './read-tools-common.js';
+import { registerSafeTool } from './register-safe-tool.js';
 
-export function registerSitesTool(server: McpServer, client: BdpClient): void {
-  server.registerTool('bdp_list_sites', {
+export function registerSitesTool(server: McpServer, client: BdpClient, config: Config): void {
+  registerSafeTool(server, config, 'bdp_list_sites', {
     description: 'List sites visible to the configured BDP identity.',
     inputSchema: {
       take: z.number().int().positive().optional().describe('Maximum sites to return (capped at 100; default 20).'),

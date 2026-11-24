@@ -2,6 +2,7 @@ import { z } from 'zod';
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import type { BdpClient } from '../bdp-client.js';
 import { BdpError } from '../bdp-client.js';
+import type { Config } from '../config.js';
 import {
   errorContent,
   guidSchema,
@@ -10,6 +11,7 @@ import {
   page,
   paginationSchema,
 } from './read-tools-common.js';
+import { registerSafeTool } from './register-safe-tool.js';
 
 const measurementScopes = {
   buildingId: { route: 'Buildings', description: 'Building to scope the results to.' },
@@ -43,8 +45,8 @@ function isUtcTimestamp(value: string): boolean {
   return Number.isFinite(parsed.getTime()) && parsed.toISOString().slice(0, 19) === match[1];
 }
 
-export function registerMeasurementTools(server: McpServer, client: BdpClient): void {
-  server.registerTool('bdp_get_measurement_values', {
+export function registerMeasurementTools(server: McpServer, client: BdpClient, config: Config): void {
+  registerSafeTool(server, config, 'bdp_get_measurement_values', {
     description: 'List current measurement values for exactly one building, floor, space, device, or device group.',
     inputSchema: {
       ...paginationSchema,
@@ -63,7 +65,7 @@ export function registerMeasurementTools(server: McpServer, client: BdpClient): 
     }
   });
 
-  server.registerTool('bdp_get_historical_values', {
+  registerSafeTool(server, config, 'bdp_get_historical_values', {
     description: 'Retrieve time-ordered historical values for one measurement GUID within a UTC time range.',
     inputSchema: {
       measurementValueId: guidSchema.describe('GUID of the measurement value.'),

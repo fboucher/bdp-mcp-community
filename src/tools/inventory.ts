@@ -2,6 +2,7 @@ import { z } from 'zod';
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import type { BdpClient } from '../bdp-client.js';
 import { BdpError } from '../bdp-client.js';
+import type { Config } from '../config.js';
 import {
   errorContent,
   guidSchema,
@@ -10,6 +11,7 @@ import {
   page,
   paginationSchema,
 } from './read-tools-common.js';
+import { registerSafeTool } from './register-safe-tool.js';
 
 const parentScopes = {
   buildingId: { route: 'Buildings', description: 'Building to scope the results to.' },
@@ -34,8 +36,8 @@ function scopedPath(resource: 'Devices' | 'DeviceGroups', ids: Record<string, st
   return `/api/${scope.route}/${encodeURIComponent(ids[id]!)}/${resource}`;
 }
 
-export function registerInventoryTools(server: McpServer, client: BdpClient): void {
-  server.registerTool('bdp_list_devices', {
+export function registerInventoryTools(server: McpServer, client: BdpClient, config: Config): void {
+  registerSafeTool(server, config, 'bdp_list_devices', {
     description: 'List devices within exactly one building, floor, space, or source.',
     inputSchema: {
       ...paginationSchema,
@@ -53,7 +55,7 @@ export function registerInventoryTools(server: McpServer, client: BdpClient): vo
     }
   });
 
-  server.registerTool('bdp_list_device_groups', {
+  registerSafeTool(server, config, 'bdp_list_device_groups', {
     description: 'List device groups within exactly one building, floor, space, or source.',
     inputSchema: {
       ...paginationSchema,
@@ -71,7 +73,7 @@ export function registerInventoryTools(server: McpServer, client: BdpClient): vo
     }
   });
 
-  server.registerTool('bdp_list_sources', {
+  registerSafeTool(server, config, 'bdp_list_sources', {
     description: 'List sources visible to the configured BDP identity.',
     inputSchema: {
       ...paginationSchema,

@@ -2,6 +2,8 @@ import { getIntrospectionQuery, parse } from 'graphql';
 import { z } from 'zod';
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { BdpClient, BdpError } from '../bdp-client.js';
+import type { Config } from '../config.js';
+import { registerSafeTool } from './register-safe-tool.js';
 
 export const MAX_GRAPHQL_RESPONSE_BYTES = 64 * 1024;
 export const MAX_GRAPHQL_SCHEMA_BYTES = 32 * 1024;
@@ -164,8 +166,8 @@ async function runGraphql(
   return client.graphqlRequest(query, variables, operationName);
 }
 
-export function registerGraphqlTools(server: McpServer, client: BdpClient): void {
-  server.registerTool('bdp_graphql_schema', {
+export function registerGraphqlTools(server: McpServer, client: BdpClient, config: Config): void {
+  registerSafeTool(server, config, 'bdp_graphql_schema', {
     description: 'Return a compact, size-bounded summary of the BDP GraphQL schema.',
     inputSchema: {},
     annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: true },
@@ -188,7 +190,7 @@ export function registerGraphqlTools(server: McpServer, client: BdpClient): void
     }
   });
 
-  server.registerTool('bdp_graphql_query', {
+  registerSafeTool(server, config, 'bdp_graphql_query', {
     description: 'Run a read-only GraphQL query against BDP. Mutation and subscription operations are rejected.',
     inputSchema: {
       query: z.string().min(1).describe('A GraphQL query document.'),

@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import type { BdpClient } from '../bdp-client.js';
+import type { Config } from '../config.js';
 import {
   errorContent,
   guidSchema,
@@ -9,9 +10,10 @@ import {
   page,
   paginationSchema,
 } from './read-tools-common.js';
+import { registerSafeTool } from './register-safe-tool.js';
 
-export function registerDatasetTools(server: McpServer, client: BdpClient): void {
-  server.registerTool('bdp_list_datasets', {
+export function registerDatasetTools(server: McpServer, client: BdpClient, config: Config): void {
+  registerSafeTool(server, config, 'bdp_list_datasets', {
     description: 'List datasets visible to the configured BDP identity.',
     inputSchema: {
       ...paginationSchema,
@@ -27,7 +29,7 @@ export function registerDatasetTools(server: McpServer, client: BdpClient): void
     }
   });
 
-  server.registerTool('bdp_get_dataset', {
+  registerSafeTool(server, config, 'bdp_get_dataset', {
     description: 'Retrieve one dataset by its GUID.',
     inputSchema: { datasetId: guidSchema.describe('GUID of the dataset.') },
     annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: true },
@@ -40,7 +42,7 @@ export function registerDatasetTools(server: McpServer, client: BdpClient): void
     }
   });
 
-  server.registerTool('bdp_get_dataset_measurement_values', {
+  registerSafeTool(server, config, 'bdp_get_dataset_measurement_values', {
     description: 'Retrieve a bounded page of measurement values included in a dataset.',
     inputSchema: {
       ...paginationSchema,

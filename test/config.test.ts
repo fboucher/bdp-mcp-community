@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { loadConfig, UAT_BASE_URL } from '../src/config.js';
+import { loadConfig, UAT_BASE_URL, writeSafetyStatus } from '../src/config.js';
 
 const env = {
   BDP_TENANT_ID: 'example-tenant',
@@ -20,6 +20,8 @@ describe('configuration', () => {
       transport: 'stdio',
       httpHost: '127.0.0.1',
       httpPort: 3000,
+      readOnly: true,
+      allowDestructive: false,
     });
     expect(loadConfig({ ...env, BDP_BASE_URL: 'https://example.test/' }).baseUrl).toBe('https://example.test');
   });
@@ -37,6 +39,30 @@ describe('configuration', () => {
       httpPort: 8080,
       authToken: 'secret-token',
     });
+  });
+
+  it('configures read-only and destructive write gates independently', () => {
+    expect(loadConfig({
+      ...env,
+      MCP_READ_ONLY: 'false',
+      MCP_ALLOW_DESTRUCTIVE: 'true',
+    })).toMatchObject({ readOnly: false, allowDestructive: true });
+    expect(loadConfig({ ...env, MCP_READ_ONLY: 'false' }))
+      .toMatchObject({ readOnly: false, allowDestructive: false });
+  });
+
+  it.each([
+    ['MCP_READ_ONLY', 'maybe'],
+    ['MCP_ALLOW_DESTRUCTIVE', 'yes'],
+  ])('rejects invalid %s values', (name, value) => {
+    expect(() => loadConfig({ ...env, [name]: value })).toThrow(`${name} must be either true or false`);
+  });
+
+  it('reports effective write status without configuration secrets', () => {
+    expect(writeSafetyStatus({ readOnly: true, allowDestructive: true }))
+      .toBe('MCP write safety: writes disabled (read-only mode); destructive operations disabled');
+    expect(writeSafetyStatus({ readOnly: false, allowDestructive: true }))
+      .toBe('MCP write safety: writes enabled; destructive operations enabled');
   });
 
   it('rejects bearer tokens that cannot be sent in an Authorization header', () => {

@@ -8,9 +8,25 @@ export interface Config {
   httpHost: string;
   httpPort: number;
   authToken?: string;
+  readOnly: boolean;
+  allowDestructive: boolean;
 }
 
 export const UAT_BASE_URL = 'https://ecostruxure-building-platform-api-uat.se.app';
+
+function booleanSetting(env: NodeJS.ProcessEnv, name: string, defaultValue: boolean): boolean {
+  const value = env[name]?.trim().toLowerCase();
+  if (!value) return defaultValue;
+  if (value === 'true') return true;
+  if (value === 'false') return false;
+  throw new Error(`${name} must be either true or false`);
+}
+
+export function writeSafetyStatus(config: Pick<Config, 'readOnly' | 'allowDestructive'>): string {
+  const writes = config.readOnly ? 'disabled (read-only mode)' : 'enabled';
+  const destructive = !config.readOnly && config.allowDestructive ? 'enabled' : 'disabled';
+  return `MCP write safety: writes ${writes}; destructive operations ${destructive}`;
+}
 
 export function loadConfig(env: NodeJS.ProcessEnv): Config {
   const required = ['BDP_TENANT_ID', 'BDP_CLIENT_ID', 'BDP_CLIENT_SECRET', 'BDP_SCOPE'] as const;
@@ -48,6 +64,8 @@ export function loadConfig(env: NodeJS.ProcessEnv): Config {
   if (authToken !== undefined && !/^[\x21-\x7e]+$/.test(authToken)) {
     throw new Error('MCP_AUTH_TOKEN must be a non-empty bearer token without whitespace');
   }
+  const readOnly = booleanSetting(env, 'MCP_READ_ONLY', true);
+  const allowDestructive = booleanSetting(env, 'MCP_ALLOW_DESTRUCTIVE', false);
 
   return {
     baseUrl: url.href.replace(/\/+$/, ''),
@@ -59,5 +77,7 @@ export function loadConfig(env: NodeJS.ProcessEnv): Config {
     httpHost: env.MCP_HTTP_HOST?.trim() || '127.0.0.1',
     httpPort: Number(portValue),
     authToken,
+    readOnly,
+    allowDestructive,
   };
 }

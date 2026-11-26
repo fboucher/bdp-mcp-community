@@ -1,0 +1,40 @@
+{
+  "name": "@fboucher/bdp-mcp-community",
+  "version": "0.1.0",
+  "description": "Community MCP server for EcoStruxure Building Data Platform",
+  "type": "module",
+  "license": "MIT",
+  "bin": {
+    "bdp-mcp-community": "dist/index.js"
+  },
+  "files": [
+    "dist",
+    "docs/adding-a-tool.md",
+    "CONTRIBUTING.md",
+    "SECURITY.md"
+  ],
+  "engines": {
+    "node": "^22.13.0 || ^24.0.0 || >=26.0.0"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "prepack": "npm run build",
+    "start": "node dist/index.js",
+    "lint": "eslint .",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.32.2",
+    "graphql": "^16.15.0",
+    "zod": "^4.3.6"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "@types/node": "^22.0.0",
+    "eslint": "^10.0.0",
+    "typescript": "^5.9.3",
+    "typescript-eslint": "^8.74.0",
+    "vitest": "^5.1.1"
+  }
+}

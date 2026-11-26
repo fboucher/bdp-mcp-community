@@ -1,0 +1,176 @@
+import type { Config } from './config.js';
+
+export class BdpError extends Error {}
+
+export interface BdpResponse {
+  data: unknown;
+  headers: Headers;
+}
+
+export type QueryParameters = Record<string, string | number | boolean | undefined>;
+
+interface Token {
+  value: string;
+  expiresAt: number;
+}
+
+export class BdpClient {
+  private token?: Token;
+  private pendingToken?: Promise<Token>;
+
+  constructor(
+    private readonly config: Config,
+    private readonly http: typeof fetch = fetch,
+    private readonly now: () => number = Date.now,
+  ) {}
+
+  private async getToken(): Promise<Token> {
+    if (this.token && this.now() < this.token.expiresAt) return this.token;
+    if (!this.pendingToken) {
+      this.pendingToken = this.acquireToken().finally(() => {
+        this.pendingToken = undefined;
+      });
+    }
+    return this.pendingToken;
+  }
+
+  private async acquireToken(): Promise<Token> {
+    const requestedAt = this.now();
+    const body = new URLSearchParams({
+      client_id: this.config.clientId,
+      client_secret: this.config.clientSecret,
+      scope: this.config.scope,
+      grant_type: 'client_credentials',
+    });
+    let response: Response;
+    try {
+      response = await this.http(
+        `https://login.microsoftonline.com/${this.config.tenantId}/oauth2/v2.0/token`,
+        { method: 'POST', body, redirect: 'error' },
+      );
+    } catch {
+      throw new BdpError('Entra token request failed; check connectivity');
+    }
+    if (!response.ok) {
+      throw new BdpError(`Entra token request failed (HTTP ${response.status}); check credentials and scope`);
+    }
+    let payload: unknown;
+    try {
+      payload = await response.json();
+    } catch {
+      throw new BdpError('Entra returned an invalid token response');
+    }
+    if (
+      typeof payload !== 'object' || payload === null ||
+      !('access_token' in payload) || typeof payload.access_token !== 'string' || !payload.access_token ||
+      !('expires_in' in payload) || typeof payload.expires_in !== 'number' ||
+      !Number.isFinite(payload.expires_in) || payload.expires_in <= 0
+    ) {
+      throw new BdpError('Entra returned an invalid token response');
+    }
+    const lifetime = payload.expires_in * 1000;
+    const token = {
+      value: payload.access_token,
+      expiresAt: requestedAt + lifetime - Math.min(60_000, lifetime * 0.1),
+    };
+    this.token = token;
+    return token;
+  }
+
+  async listSites(take: number, skip: number): Promise<unknown> {
+    return (await this.getJson('/api/Sites', { take, skip })).data;
+  }
+
+  async getJson(path: string, query: QueryParameters = {}): Promise<BdpResponse> {
+    const url = new URL(`${this.config.baseUrl}${path}`);
+    for (const [key, value] of Object.entries(query)) {
+      if (value !== undefined) url.searchParams.set(key, String(value));
+    }
+    return this.requestJson(url, { method: 'GET' });
+  }
+
+  async sendJson(path: string, body: unknown): Promise<BdpResponse> {
+    const url = new URL(`${this.config.baseUrl}${path}`);
+    return this.requestJson(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+  }
+
+  private async requestJson(url: URL, options: RequestInit): Promise<BdpResponse> {
+    let token = await this.getToken();
+    let response = await this.request(url, token, options);
+    if (response.status === 401) {
+      if (this.token === token) this.token = undefined;
+      token = await this.getToken();
+      response = await this.request(url, token, options);
+    }
+    if (!response.ok) {
+      if (response.status === 401) throw new BdpError('BDP returned HTTP 401 after re-authentication');
+      if (response.status === 400) throw new BdpError('BDP returned HTTP 400; check the request fields');
+      if (response.status === 403) throw new BdpError('BDP returned HTTP 403; the identity is not authorized to access this resource');
+      if (response.status === 404) throw new BdpError('BDP returned HTTP 404; the requested resource was not found');
+      if (response.status === 413) throw new BdpError('BDP returned HTTP 413; reduce take or narrow the request');
+      if (response.status === 424) throw new BdpError('BDP returned HTTP 424; a required upstream resource could not be reached');
+      if (response.status >= 500) throw new BdpError(`BDP service failed (HTTP ${response.status}); try again later`);
+      throw new BdpError(`BDP request failed (HTTP ${response.status})`);
+    }
+    try {
+      return { data: await response.json(), headers: response.headers };
+    } catch {
+      throw new BdpError('BDP returned invalid JSON');
+    }
+  }
+
+  async graphqlRequest(
+    query: string,
+    variables?: Record<string, unknown>,
+    operationName?: string,
+  ): Promise<{ status: number; body: unknown }> {
+    const url = new URL(`${this.config.baseUrl}/graphql`);
+    const payload: { query: string; variables?: Record<string, unknown>; operationName?: string } = { query };
+    if (variables !== undefined) payload.variables = variables;
+    if (operationName !== undefined) payload.operationName = operationName;
+    let token = await this.getToken();
+    let response = await this.request(url, token, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    if (response.status === 401) {
+      if (this.token === token) this.token = undefined;
+      token = await this.getToken();
+      response = await this.request(url, token, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+    }
+
+    let body: unknown;
+    try {
+      body = await response.json();
+    } catch {
+      throw new BdpError('BDP returned invalid GraphQL JSON');
+    }
+    return { status: response.status, body };
+  }
+
+  private async request(url: URL, token: Token, options: RequestInit = {}): Promise<Response> {
+    try {
+      return await this.http(url, {
+        ...options,
+        headers: {
+          ...options.headers,
+          Authorization: `Bearer ${token.value}`,
+          'X-Api-Version': '3.0',
+          Accept: 'application/json',
+        },
+        redirect: 'error',
+      });
+    } catch {
+      throw new BdpError('BDP request failed; check connectivity');
+    }
+  }
+}

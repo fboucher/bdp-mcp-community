@@ -12,3 +12,9 @@ build/
 
 # Local-only previews of real exported docs. Never committed (repo is public).
 /.local/
+
+node_modules/
+.env
+.env.*
+!.env.example
+coverage/
